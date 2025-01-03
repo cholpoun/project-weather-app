@@ -1,4 +1,4 @@
-const apiKey = 'f9f6a2848b9884ac0094319bc7eaad1f'; // Replace with your OpenWeatherMap API key
+const apiKey = 'f9f6a2848b9884ac0094319bc7eaad1f'; 
 const city = 'Stockholm';
 
 async function fetchWeather() {
