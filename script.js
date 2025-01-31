@@ -1,4 +1,4 @@
-const apiKey = 'f9f6a2848b9884ac0094319bc7eaad1f'; 
+const apiKey = 'f9f6a2848b9884ac0094319bc7eaad1f';
 const city = 'Stockholm';
 
 async function fetchWeather() {
@@ -30,24 +30,20 @@ function displayCurrentWeather(data) {
     const localTimeElement = document.getElementById('local-time');
     const weatherIconElement = document.getElementById('weather-icon');
 
-    const temperature = data.main.temp.toFixed(1); // Temperature rounded to 1 decimal place
+    const temperature = data.main.temp.toFixed(1);
     const cityName = data.name;
     const description = data.weather[0].description;
-    const sunrise = formatTime(data.sys.sunrise);
-    const sunset = formatTime(data.sys.sunset);
+    const sunrise = formatTime(data.sys.sunrise, data.timezone);
+    const sunset = formatTime(data.sys.sunset, data.timezone);
     const iconCode = data.weather[0].icon;
     const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
 
-    // Calculate local time
-    const timezoneOffset = data.timezone; // Timezone offset in seconds
-    const utcTime = new Date(); // Current UTC time
-    const localTime = new Date(utcTime.getTime() + timezoneOffset * 1000);
-
-    // Format local time as HH:mm
-    const localTimeFormatted = localTime.toLocaleTimeString([], {
+    // Correct local time calculation
+    const localTimeFormatted = new Intl.DateTimeFormat('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-    });
+        timeZone: `Etc/GMT${data.timezone / 3600 > 0 ? '-' : '+'}${Math.abs(data.timezone / 3600)}`,
+    }).format(new Date());
 
     // Update DOM elements
     temperatureElement.textContent = `${temperature}°C`;
@@ -57,26 +53,41 @@ function displayCurrentWeather(data) {
     sunsetElement.textContent = `Sunset: ${sunset}`;
     localTimeElement.textContent = `Local Time: ${localTimeFormatted}`;
 
-    // Add or update the weather icon
+    // Update weather icon
     weatherIconElement.src = iconUrl;
     weatherIconElement.alt = description;
 }
 
 function displayForecast(data) {
     const forecastElement = document.getElementById('forecast');
-    const dailyForecasts = data.list.filter(item => item.dt_txt.includes('12:00:00'));
+    const groupedForecasts = {};
 
-    forecastElement.innerHTML = ''; // Clear previous forecast items
-    dailyForecasts.slice(0, 5).forEach(forecast => {
+    // Group forecasts by date
+    data.list.forEach(item => {
+        const date = item.dt_txt.split(' ')[0]; // Extract date
+        if (!groupedForecasts[date]) {
+            groupedForecasts[date] = [];
+        }
+        groupedForecasts[date].push(item);
+    });
+
+    // Generate forecast display
+    forecastElement.innerHTML = ''; // Clear previous forecast
+    Object.entries(groupedForecasts).slice(0, 5).forEach(([date, forecasts]) => {
+        const day = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
+
+        // Calculate min/max temperatures for the day
+        const temps = forecasts.map(f => f.main.temp);
+        const tempMin = Math.min(...temps).toFixed(1);
+        const tempMax = Math.max(...temps).toFixed(1);
+
+        // Select the midday weather icon
+        const middayForecast = forecasts.find(f => f.dt_txt.includes('12:00:00')) || forecasts[0];
+        const iconCode = middayForecast.weather[0].icon;
+        const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+
         const forecastItem = document.createElement('div');
         forecastItem.className = 'forecast-item';
-
-        const day = new Date(forecast.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' });
-        const iconCode = forecast.weather[0].icon;
-        const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
-        const tempMin = forecast.main.temp_min.toFixed(1);
-        const tempMax = forecast.main.temp_max.toFixed(1);
-
         forecastItem.innerHTML = `
             <div class="day">${day}</div>
             <img src="${iconUrl}" alt="Weather icon" class="icon" />
@@ -87,8 +98,8 @@ function displayForecast(data) {
     });
 }
 
-function formatTime(timestamp) {
-    const date = new Date(timestamp * 1000);
+function formatTime(timestamp, timezoneOffset) {
+    const date = new Date((timestamp + timezoneOffset) * 1000);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
